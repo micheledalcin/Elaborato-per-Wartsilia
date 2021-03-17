@@ -68,21 +68,32 @@ def meanlist(lista):
 
 
 df_imo_mos['MOS'] = df_imo_mos['MOS'].apply(meanlist)
-df_design_speed = df_design_speed.rename(columns={"Design Speed (knots)" : "Design speed"})
 df_vessels_info = df_vessels_info.rename(columns={"Inst IMO No": "IMO"})
 df_imo_mos = df_imo_mos.rename(columns={"imo": "IMO"})
 
 df_vessels_info = pd.merge(df_vessels_info, df_imo_mos, on= 'IMO')
 df_vessels_info = pd.merge(df_vessels_info, df_design_speed, on= 'IMO')
 #Filter those Vessels already working below the design speed
-df_vessels_info = df_vessels_info[df_vessels_info['MOS'] < df_vessels_info['Design speed']]
+df_vessels_info = df_vessels_info[df_vessels_info['MOS'] < df_vessels_info['Design Speed (knots)']]
 
-df_vessels_info['Real Prop Power Demand']= df_vessels_info.apply(lambda x: (x['MOS']/x['Design speed'])**3*x['Main Engine Power (kW)']*0.85, axis=1)
+# Now i can apply the function  Px = (Sx/Sref)^3*Pref
+df_vessels_info['Real Prop Power Demand (kW)']= df_vessels_info.apply(lambda x: (x['MOS']/x['Design Speed (knots)'])**3*x['Main Engine Power (kW)']*0.85, axis=1)
 
+#Calcultaing Excess Propulsion Power
+df_vessels_info['Excess Propulsion Power (kW)'] = df_vessels_info.apply(lambda x: x['Main Engine Power (kW)']*0.85 - x['Real Prop Power Demand (kW)']  , axis=1)
 #I think that the Installed Propulsion Power is equal to the Main Engine Power
-df_vessels_info['EPL'] = df_vessels_info.apply(lambda x: x['Main Engine Power (kW)'] - x['Real Prop Power Demand']/0.85  , axis=1)
-df_vessels_info['Design speed - MOS'] = df_vessels_info.apply(lambda x: x['Design speed'] - x['MOS']  , axis=1)
-df_vessels_info = df_vessels_info.sort_values(by='EPL', ascending=False)
+df_vessels_info['EPL (kW)'] = df_vessels_info.apply(lambda x: x['Main Engine Power (kW)'] - x['Real Prop Power Demand (kW)']/0.85  , axis=1)
+#Uncomment to add to the dataframe the difference between Design speed and Max Operational Speed
+# df_vessels_info['Design speed - MOS'] = df_vessels_info.apply(lambda x: x['Design speed'] - x['MOS']  , axis=1)
+df_vessels_info = df_vessels_info.sort_values(by='EPL (kW)', ascending=False)    #Sort by descending EPL
+
+df_vessels_info = df_vessels_info.rename(columns={"MOS": "MOS (knots)"})
+
+n=10 #Modify this number to find the top n recurrent element of the lists below
+top_n_prod = df_vessels_info['Product'].value_counts()[:n]
+top_n_vessel_type = df_vessels_info['Inst Cluster'].value_counts()[:n]
+top_n_customer = df_vessels_info['Customer ID'].value_counts()[:n]
+
 
 #Uncomment to export vessels_info dataframe with MOS, Design speed and EPL to excel format
-# df_vessels_info.to_excel('EPL adressable.xlsx')
+#df_vessels_info.to_excel('EPL adressable.xlsx')
